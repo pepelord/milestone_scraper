@@ -108,7 +108,7 @@ def create_csv():
 
     for index, row in df.iterrows():
         # print(row)
-        ami_search = requests.get(f"{AMIAMI_SEARCH}{row['JAN Code']}", headers=headers, cookies=b_cookies)
+        # ami_search = requests.get(f"{AMIAMI_SEARCH}{row['JAN Code']}", headers=headers, cookies=b_cookies)
         product_name = str(row["Product Name"]).replace('"', "")
         if row["Order Unit"] != 1:
             product_name = f"{product_name} ({row['Order Unit']} pieces)"
@@ -262,7 +262,7 @@ def create_csv():
             csv_line_dict["Wholesaler discount"] = "30"
             csv_line_dict["Carton wholesaler discount (%)"] = "30"
 
-        elif str(csv_line_dict["1社目:掛率"]) == "62%":
+        elif str(csv_line_dict["1社目:掛率"]) == "62%" or str(csv_line_dict["1社目:掛率"]) == "63%":
             csv_line_dict["Paylater discount"] = "12"
             csv_line_dict["Retailer discount"] = "23"
             csv_line_dict["Wholesaler discount"] = "28"
@@ -310,13 +310,9 @@ def create_csv():
         else:
 
             df.to_csv(f"{desktop}\\Milestone preorders-{today}.csv", index=False)
-        soup = BeautifulSoup(ami_search.content, "lxml")
+
         # print(soup.prettify())
         print(csv_line_dict)
-
-
-def percentage(discount):
-    wholesaler_disc = ((discount / 100) * 100) - 10
 
 
 get_csv()
