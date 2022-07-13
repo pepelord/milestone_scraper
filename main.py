@@ -126,6 +126,13 @@ def create_csv():
             release_date = f'{str(row["Release Date"]).replace("Within ", "")}/{day}'
         else:
             release_date = str(row["Release Date"])
+        name_jp_pd = (df_ja.loc[df_ja["JANコード"] == row["JAN Code"]]["商品名"])
+        name_jp_str = (str(name_jp_pd))
+        name_jp_list = name_jp_str.split()
+        name_jp_list.pop(0)
+        for x in range(4):
+            name_jp_list.pop(-1)
+        name_jp = " ".join(name_jp_list)
 
         try:
             csv_line_dict = {
@@ -137,7 +144,7 @@ def create_csv():
                 "jan code": row["JAN Code"],
                 "Manufacturer(製品メーカー)": row["Manufacturers"],
                 "maker id": "",
-                "Name:JP": str(df_ja.loc[df_ja["JANコード"] == row["JAN Code"]]["商品名"]).split("\n")[0][6:],
+                "Name:JP": name_jp,
                 "product name": product_name,
                 "Name:AE": "",
                 "category": "",
@@ -297,7 +304,19 @@ def create_csv():
             csv_line_dict["Retailer discount"] = "5"
             csv_line_dict["Wholesaler discount"] = "10"
             csv_line_dict["Carton wholesaler discount (%)"] = "10"
-
+        description, material, image_list = amiami_info(csv_line_dict["jan code"])
+        print(image_list)
+        if description != "":
+            description = description.replace(",", ".")
+            csv_line_dict["Product description"] = description
+        if material != "":
+            material = material.replace(",", ".")
+            csv_line_dict["Material"] = material
+        if len(image_list) != 0:
+            counter = 1
+            for image in image_list:
+                csv_line_dict[f"image {counter}"] = image
+                counter += 1
         df = pd.DataFrame(csv_line_dict, index=[1])
         desktop = os.path.expanduser("~/Desktop")
         file_exists = exists(f"{desktop}\\Milestone preorders-{today}.csv")
@@ -312,7 +331,53 @@ def create_csv():
             df.to_csv(f"{desktop}\\Milestone preorders-{today}.csv", index=False)
 
         # print(soup.prettify())
-        print(csv_line_dict)
+        # print(csv_line_dict)
 
+
+def amiami_info(jan):
+    options.add_argument("--headless")
+    driver = webdriver.Chrome(service=service, options=options)
+    ami_search = driver.get(f"{AMIAMI_SEARCH}{jan}")
+    time.sleep(2)
+    soup = BeautifulSoup(driver.page_source, "lxml")
+
+    new_items = soup.find("li", {"class": "newly-added-items__item nomore"})
+    size = ""
+    material = ""
+    description = ""
+    image_list = []
+    if new_items is not None:
+        product_link_raw = new_items.find("a")
+        product_link = str(product_link_raw).split('href="')[1].split('"')[0]
+        print(product_link)
+        driver.get(f"https://www.amiami.com{product_link}")
+        time.sleep(2)
+        soup = BeautifulSoup(driver.page_source, "lxml")
+        images = soup.find_all("a", {"class": "nolink"})
+        if images is not None:
+            ami_tag = product_link.split("gcode=")[1]
+            for image in images:
+                if ami_tag in str(image):
+                    img_link = str(image).split('src="')[1].split('"')[0]
+                    image_list.append(img_link)
+        if len(image_list) != 0:
+            image_list.pop(0)
+
+        specifications = soup.find_all("dd", {"class": "item-about__data-text"})
+        details = soup.find("dd", {"class": "item-about__data-text more"})
+        # print(details)
+        if details is not None:
+            description = str(details).split('"item-about__data-text more">')[1].split("</dd>")[0]
+        for specification in specifications:
+            if "Size:" in str(specification):
+                size = f"Size: {str(specification).split('Size:')[1].split('<')[0]}"
+                # print(size)
+            if "Material:" in str(specification):
+                material = f"{str(specification).split('Material:')[1].split('<')[0]}"
+                print(material)
+    # print(soup.prettify())
+    driver.close()
+    description = f"{size} <br/> {description}"
+    return description, material, image_list
 
 get_csv()
