@@ -6,27 +6,29 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.service import Service
 from selenium import webdriver
 
-options = Options()
-# options.add_argument("--headless")
+headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) '
+                         'Chrome/39.0.2171.95 Safari/537.36'}
+main_url = "https://anime-export.com/index.php"
 
-service = Service('chromedriver.exe')
-driver = webdriver.Chrome(service=service, options=options)
-headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36'}
+login_data = {
+    "command": "login",
+    "username": "adminae",
+    "password": "cazzinculo6969",
+    "x": "57",
+    "y": "16",
+}
+url = "https://anime-export.com/admin/csvupload.php"
+files = {"upload_file": open("anvil.png", "rb")}
+values = {"DB": "photcat", "OUT": "csv", "SHORT": "short"}
 
-b_cookies = {
-    "Cookie": "_gid=GA1.2.1654352526.1656855028; language=en; plack_session=f78860c384b7d52e0e706256ddc1345f27ee0bda; "
-              "_ga_H9G5GSEWC5=GS1.1.1656855027.1.1.1656855066.0; _ga=GA1.2.204837841.1656855027;"}
-csv_language = "en"
-today = datetime.now()
-yesterday = today - timedelta(days=1)
-today = datetime.strftime(today, "%Y-%m-%d")
-yesterday = datetime.strftime(yesterday, "%Y-%m-%d")
-AMIAMI_SEARCH = "https://www.amiami.com/eng/search/list/?s_keywords="
-
-ami_search = driver.get("https://www.amiami.com/eng/search/list/?s_keywords=4582615812668")
-# ami_search = requests.get(f"{AMIAMI_SEARCH}4582615812668", headers=headers)
-print(ami_search)
-# soup = BeautifulSoup(ami_search.page_source, "html.parser")
-driver.quit()
-# print(soup.prettify())
+with requests.Session() as s:
+    s.post(main_url, headers=headers, data=login_data)
+    manufacturers = s.get("https://anime-export.com/admin/manufacturers.php")
+    company = "test"
+    new_data = {"manufacturername": company, "command": "addmanufacturer"}
+    new_manufacturer = s.post("https://anime-export.com/admin/manufacturers.php", data=new_data, headers=headers)
+    soup = BeautifulSoup(new_manufacturer.content, "lxml")
+    man_ids = soup.find_all("tr", {"style": "background-color: #fff;"})
+    for item in man_ids:
+        if company in str(item):
+            man_id = str(item).split("<td>")[1].split("</td>")[0]

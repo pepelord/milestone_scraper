@@ -1,0 +1,16 @@
+category       ,category id,subcategory  ,subcategory id
+FIGURE         ,2867       ,DOLLS        ,2868
+PLASTIC KITS   ,2870       ,FIGURES      ,2869
+MEDIA          ,2874       ,DIECAST      ,2886
+CARDS          ,2877       ,GUNPLA       ,2871
+CHARACTER GOODS,2878       ,PLAMO        ,2872
+               ,           ,PARTS / TOOLS,2873
+               ,           ,GAMES        ,2875
+               ,           ,BOOKS        ,2876
+               ,           ,PACK         ,2883
+               ,           ,BOX          ,2884
+               ,           ,SPECIAL SET  ,2885
+               ,           ,CANDY TOY    ,2879
+               ,           ,PLUSHIE      ,2880
+               ,           ,CAPSULE      ,2881
+               ,           ,OTHERS       ,2882

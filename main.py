@@ -1,7 +1,11 @@
 import time
 import os
 from os.path import exists
+from typing import Union, Any
+
 import requests
+from pandas import DataFrame
+from pandas.io.parsers import TextFileReader
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
@@ -67,6 +71,19 @@ def login():
         return s
 
 
+def get_categories(category):
+    categories_id = pd.read_csv("milestone_category_subcategory.csv")
+
+    try:
+        category_id = categories_id.loc[categories_id["Categories"] == category, "category id"].values[0]
+        subcategory_id = categories_id.loc[categories_id["Categories"] == category, "subcategory id"].values[0]
+    except IndexError:
+        category_id = "2878"
+        subcategory_id = "2882"
+
+    return category_id, subcategory_id
+
+
 def get_csv():
     print(today)
     print(yesterday)
@@ -89,18 +106,19 @@ def get_csv():
 
 def parse_csv():
     raw_df = pd.read_csv("test.csv")
-    raw_df = raw_df.replace('[()]', '', regex=True)
+
     raw_df.to_csv("less_raw_df.csv", index=False)
     less_raw_df = pd.read_csv("less_raw_df.csv")
     raw_df_ja = pd.read_csv("test_ja.csv")
     raw_df_ja = raw_df_ja.replace('[()]', '', regex=True)
     raw_df_ja.to_csv("less_raw_df_ja.csv", index=False)
     less_raw_df_ja = pd.read_csv("less_raw_df_ja.csv")
-    # print(raw_df)
-    df = less_raw_df.loc[(less_raw_df["Categories"] != "Figure・Doll") & (less_raw_df["Categories"] != "Plastic Model")]
-    df_ja = less_raw_df_ja.loc[(less_raw_df_ja["カテゴリー"] != "フィギュア・ドール") & (less_raw_df_ja["カテゴリー"] != "プラモデル・模型l")]
+    df = less_raw_df.loc[
+        (less_raw_df["Categories"] != "Figure・Doll") & (less_raw_df["Categories"] != "Plastic Model") & (
+                less_raw_df["Product status"] != "Tentative Pre-order")]
+    df_ja = less_raw_df_ja.loc[(less_raw_df_ja["カテゴリー"] != "フィギュア・ドール") & (less_raw_df_ja["カテゴリー"] != "プラモデル・模型l") & (
+            less_raw_df_ja["在庫状況"] != "予約問合せ")]
     return df, df_ja
-    # print(df.to_string())
 
 
 def create_csv():
@@ -109,7 +127,7 @@ def create_csv():
     for index, row in df.iterrows():
         # print(row)
         # ami_search = requests.get(f"{AMIAMI_SEARCH}{row['JAN Code']}", headers=headers, cookies=b_cookies)
-        product_name = str(row["Product Name"]).replace('"', "")
+        product_name = str(row["Product Name"]).replace('"', "").replace("(", "").replace(")", "")
         if row["Order Unit"] != 1:
             product_name = f"{product_name} ({row['Order Unit']} pieces)"
 
@@ -134,6 +152,60 @@ def create_csv():
             name_jp_list.pop(-1)
         name_jp = " ".join(name_jp_list)
 
+        maker_list = pd.read_csv("maker_list.csv")
+        manufacturer_id = None
+        for id_index, id_row in maker_list.iterrows():
+            if str(row["Manufacturers"]).lower() == str(id_row["Maker name"]).lower():
+                manufacturer_id = id_row["Maker ID"]
+
+        if manufacturer_id is None:
+            main_url = "https://anime-export.com/index.php"
+
+            login_data = {
+                "command": "login",
+                "username": "adminae",
+                "password": "cazzinculo6969",
+                "x": "57",
+                "y": "16",
+            }
+
+            new_manufacturers = []
+            with requests.Session() as s:
+                s.post(main_url, headers=headers, data=login_data)
+                manufacturers = s.get("https://anime-export.com/admin/manufacturers.php")
+                company = row["Manufacturers"]
+                if company not in new_manufacturers:
+
+                    new_data = {"manufacturername": company, "command": "addmanufacturer"}
+                    new_manufacturer = s.post("https://anime-export.com/admin/manufacturers.php", data=new_data,
+                                              headers=headers)
+
+                    new_manufacturers.append(company)
+                    soup = BeautifulSoup(new_manufacturer.content, "lxml")
+                    man_ids = soup.find_all("tr", {"style": "background-color: #fff;"})
+
+                    for item in man_ids:
+                        if company in str(item):
+                            man_id = str(item).split("<td>")[1].split("</td>")[0]
+                            manufacturer_id = man_id
+
+                new_csv = s.get("https://anime-export.com/admin/function.php?source=dlmakercsv",
+                                allow_redirects=True, headers=headers)
+                with open("maker_list.csv", "wb") as file:
+                    file.write(new_csv.content)
+
+        category_id, subcategory_id = get_categories(row["Categories"])
+
+        print(category_id)
+        print(subcategory_id)
+        categories_csv = pd.read_csv("categories_id.csv")
+        try:
+            category_name = categories_csv.loc[categories_csv["category id"] == category_id, "category"].values[0]
+            subcategory_name = \
+                categories_csv.loc[categories_csv["subcategory id"] == subcategory_id, "subcategory"].values[0]
+        except IndexError:
+            category_name = ""
+            subcategory_name = ""
         try:
             csv_line_dict = {
                 "No": "",
@@ -143,12 +215,12 @@ def create_csv():
                 "box rank": "NO BOX",
                 "jan code": row["JAN Code"],
                 "Manufacturer(製品メーカー)": row["Manufacturers"],
-                "maker id": "",
+                "maker id": manufacturer_id,
                 "Name:JP": name_jp,
                 "product name": product_name,
                 "Name:AE": "",
-                "category": "",
-                "subcategory": "",
+                "category": category_name,
+                "subcategory": subcategory_name,
                 "preorder deadline": "",
                 "product release": release_date,
                 "Discount(%)": "",
@@ -197,7 +269,7 @@ def create_csv():
                 "box rank": "no box",
                 "jan code": "",
                 "Manufacturer(製品メーカー)": row["Manufacturers"],
-                "maker id": "",
+                "maker id": manufacturer_id,
                 "Name:JP": str(df_ja.loc[df_ja["JANコード"] == row["JAN Code"]]["商品名"]).split("\n")[0][6:],
                 "product name": product_name,
                 "Name:AE": "",
@@ -257,13 +329,14 @@ def create_csv():
             csv_line_dict["Wholesaler discount"] = "40"
             csv_line_dict["Carton wholesaler discount (%)"] = "40"
 
-        elif str(csv_line_dict["1社目:掛率"]) == "57%":
+        elif str(csv_line_dict["1社目:掛率"]) == "55%" or str(csv_line_dict["1社目:掛率"]) == "56%" or str(
+                csv_line_dict["1社目:掛率"]) == "57%":
             csv_line_dict["Paylater discount"] = "25"
             csv_line_dict["Retailer discount"] = "30"
             csv_line_dict["Wholesaler discount"] = "33"
             csv_line_dict["Carton wholesaler discount (%)"] = "33"
 
-        elif str(csv_line_dict["1社目:掛率"]) == "60%":
+        elif str(csv_line_dict["1社目:掛率"]) == "60%" or str(csv_line_dict["1社目:掛率"]) == "61%":
             csv_line_dict["Paylater discount"] = "15"
             csv_line_dict["Retailer discount"] = "25"
             csv_line_dict["Wholesaler discount"] = "30"
@@ -275,7 +348,7 @@ def create_csv():
             csv_line_dict["Wholesaler discount"] = "28"
             csv_line_dict["Carton wholesaler discount (%)"] = "28"
 
-        elif str(csv_line_dict["1社目:掛率"]) == "65%":
+        elif str(csv_line_dict["1社目:掛率"]) == "65%" or str(csv_line_dict["1社目:掛率"]) == "68%":
             csv_line_dict["Paylater discount"] = "15"
             csv_line_dict["Retailer discount"] = "20"
             csv_line_dict["Wholesaler discount"] = "25"
@@ -307,31 +380,88 @@ def create_csv():
         description, material, image_list = amiami_info(csv_line_dict["jan code"])
         print(image_list)
         if description != "":
-            description = description.replace(",", ".")
+            description = description.replace(",", ".").replace(";", ".").replace("&amp", "&")
             csv_line_dict["Product description"] = description
         if material != "":
-            material = material.replace(",", ".")
+            material = material.replace(",", ".").replace(";", ".").replace("&amp", "&")
             csv_line_dict["Material"] = material
+
+        df2 = pd.DataFrame(csv_line_dict, index=[1])
+        desktop = os.path.expanduser("~/Desktop")
+        t_file_exists = exists(f"{desktop}\\Milestone preorders-{today}.csv")
+
+        if t_file_exists:
+
+            df2.to_csv(f"{desktop}\\Milestone preorders-{today}.csv", mode="a", header=False,
+                       index=False)
+
+        else:
+
+            df2.to_csv(f"{desktop}\\Milestone preorders-{today}.csv", index=False)
+
+        try:
+            qty_in_ctn = str(row["Number of Pieces"]).split("=")[1].split(")")[0]
+        except IndexError:
+            qty_in_ctn = ""
+        template_dict = {
+            "product name": product_name,
+            "jan code": row["JAN Code"],
+            "product cost": str(int(row["Wholesale Price"]) * int(row['Order Unit'])),
+            "product price": str(int(row["Retail Price"]) * int(row['Order Unit'])),
+            "stock qty": "0",
+            "max order qty": "6",
+            "max global qty": "6",
+            "category id": category_id,
+            "subcategory id": subcategory_id,
+            "weight": "",
+            "small packet": "yes",
+            "preorder deadline": str(row["Pre-order Deadline"]).replace("-", "/"),
+            "product release": release_date,
+            "Paylater discount": csv_line_dict["Paylater discount"],
+            "Retailer discount": csv_line_dict["Retailer discount"],
+            "Wholesaler discount": csv_line_dict["Wholesaler discount"],
+            "maker id": manufacturer_id,
+            "Product scale": "N/A",
+            "Material": material.replace(",", "."),
+            "Product description": description,
+            "image 1": "",
+            "image 2": "",
+            "image 3": "",
+            "image 4": "",
+            "image 5": "",
+            "image 6": "",
+            "image 7": "",
+            "image 8": "",
+            "image 9": "",
+            "image 10": "",
+            "product type": "Regular",
+            "rank": "NEW",
+            "box rank": "NO BOX",
+            "wholesaler only": "",
+            "creation date": today,
+            "size(cm)": "",
+            "glue": "",
+            "assembly": "",
+            "paint": "",
+            "qty in carton": qty_in_ctn,
+        }
         if len(image_list) != 0:
             counter = 1
             for image in image_list:
-                csv_line_dict[f"image {counter}"] = image
+                template_dict[f"image {counter}"] = image
                 counter += 1
-        df = pd.DataFrame(csv_line_dict, index=[1])
-        desktop = os.path.expanduser("~/Desktop")
-        file_exists = exists(f"{desktop}\\Milestone preorders-{today}.csv")
+
+        df = pd.DataFrame(template_dict, index=[1])
+        file_exists = exists(f"{desktop}\\Milestone TEMPLATE-{today}.csv")
 
         if file_exists:
 
-            df.to_csv(f"{desktop}\\Milestone preorders-{today}.csv", mode="a", header=False,
+            df.to_csv(f"{desktop}\\Milestone TEMPLATE-{today}.csv", mode="a", header=False,
                       index=False)
 
         else:
 
-            df.to_csv(f"{desktop}\\Milestone preorders-{today}.csv", index=False)
-
-        # print(soup.prettify())
-        # print(csv_line_dict)
+            df.to_csv(f"{desktop}\\Milestone TEMPLATE-{today}.csv", index=False)
 
 
 def amiami_info(jan):
@@ -362,6 +492,8 @@ def amiami_info(jan):
                     image_list.append(img_link)
         if len(image_list) != 0:
             image_list.pop(0)
+        while len(image_list) > 10:
+            image_list.pop(-1)
 
         specifications = soup.find_all("dd", {"class": "item-about__data-text"})
         details = soup.find("dd", {"class": "item-about__data-text more"})
@@ -379,5 +511,6 @@ def amiami_info(jan):
     driver.close()
     description = f"{size} <br/> {description}"
     return description, material, image_list
+
 
 get_csv()
