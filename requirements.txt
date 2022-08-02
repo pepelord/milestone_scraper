@@ -1,0 +1,10 @@
+Flask
+Werkzeug
+holidays
+bdateutil
+requests
+bs4
+selenium
+datetime
+pandas
+

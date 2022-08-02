@@ -1,4 +1,5 @@
 "Maker ID","Maker name"
+759       ," i-rights"
 530       ,-
 423       ,1000toys
 411       ,"16 Directions"
@@ -77,17 +78,21 @@
 342       ,"Beast Kingdom"
 31        ,Beat
 581       ,BeBOX
+760       ,"Bell Fine"
 588       ,"Bell House"
 369       ,BellFine
 336       ,"Big Ben"
 371       ,"Big Boys Toys"
 489       ,BigMore!
 479       ,"Bishops Rondo"
+757       ,"Bishop’s Rondo"
 390       ,"Bishoujo Tairiku"
 539       ,"BLACK CRYSTAL CANDY PROJECT"
 341       ,Blackberry
 32        ,"Blister Direct"
 288       ,Blitzway
+756       ,"Blue Oceans"
+750       ,"Blue Oceans"
 265       ,BOCO
 599       ,Bones
 586       ,"BOWU SCHOOL"
@@ -95,6 +100,7 @@
 244       ,"BRS Project"
 263       ,BRUMM
 233       ,Bushiroad
+747       ,"Bushiroad Creative"
 34        ,"Butterfly`s Dream"
 616       ,B´full
 483       ,"B´full FOTS JAPAN"
@@ -110,6 +116,7 @@
 40        ,Clayz
 41        ,Climax
 224       ,"Cms Corporation"
+749       ,Coade
 614       ,COAMIX
 364       ,"Comicave Studios"
 42        ,Cominica
@@ -123,6 +130,7 @@
 580       ,Crux
 595       ,CS.FRONT
 541       ,"Curtain Damashii"
+743       ,"Curtain Tamashii"
 247       ,Cuties
 373       ,D-trade
 621       ,D20studio
@@ -154,6 +162,7 @@
 277       ,DreamTech
 280       ,DWell
 238       ,"Earth Defense Force Secret Base"
+762       ,"EASTERN MODEL"
 388       ,"Easy Eight"
 55        ,Eat-Kip
 56        ,ebCraft
@@ -211,6 +220,7 @@
 335       ,Gecco
 358       ,Genco
 75        ,"Gene X"
+761       ,GENEARZ
 418       ,GENESIS
 76        ,Genki
 565       ,GENKOSHA
@@ -223,15 +233,18 @@
 492       ,"Good Smile Arts"
 726       ,"GOOD SMILE arts SHANGHAI"
 80        ,"Good Smile Company"
+752       ,"Good Smile Racing"
 544       ,GOT
 383       ,"Grand Toys"
 680       ,GRANUP
+744       ,"Gray Parker Service"
 81        ,"Griffon Enterprise"
 82        ,Groove
 347       ,"Groove Garage"
 83        ,"GSI Creos"
 84        ,"Gunze Sangyo"
 85        ,Gust
+746       ,Hagoromo
 432       ,"Hakoiri Musume"
 86        ,Hamster
 476       ,"Hanabatake to Bishoujo"
@@ -285,6 +298,7 @@
 524       ,Kayodo
 602       ,Keibunsha
 101       ,Kemco
+763       ,Kenelephant
 439       ,Kensin
 102       ,"Keys Factory"
 543       ,khara
@@ -316,6 +330,7 @@
 112       ,"Liquid Stone"
 397       ,Lose
 442       ,Lotteria
+754       ,LUCCA
 425       ,"Luminous Box"
 409       ,M.I.C.
 407       ,"M3 Studio"
@@ -330,6 +345,7 @@
 292       ,Marubiya
 250       ,Marusan
 115       ,"Master Replica"
+765       ,"Matsumoto Shoji"
 319       ,"Max "
 116       ,"Max Factory"
 320       ,"Max Limited"
@@ -362,6 +378,7 @@
 128       ,"Moby Dick"
 344       ,Mondo
 380       ,Monolith
+758       ,"MONSTER TOYS"
 246       ,Moof
 129       ,"Moon Toys"
 130       ,"Mori Toys"
@@ -433,6 +450,7 @@
 613       ,"Premium DNA Toys"
 294       ,"Prime 1 Studio"
 226       ,"Produce 216"
+748       ,PROOF
 159       ,Proovy
 481       ,PR_Production
 310       ,PULCHRA
@@ -466,6 +484,7 @@
 468       ,shinryakuRobo
 172       ,Shogakukan
 514       ,"Shono Kikaku"
+755       ,"Shouwa Note"
 325       ,Shueisha
 298       ,Sideshow
 173       ,"SILVER BLITZ"
@@ -473,6 +492,7 @@
 569       ,SK-Japan
 174       ,Skynet(Aoshima)
 276       ,Skytube
+753       ,Smarprise
 458       ,"Snail Shell Studio"
 175       ,"SNK Playmore"
 424       ,"Softbank Creative"
@@ -519,6 +539,7 @@
 573       ,"Takara Tomy Arts"
 560       ,Takarajimasha
 734       ,Takaratomy
+751       ,"Takaratomy Arts"
 192       ,"Taki Corporation"
 498       ,"Tama Kyu"
 193       ,Tamiya
@@ -541,6 +562,7 @@
 559       ,TOKYOGETS
 201       ,Tomitech
 331       ,Tomy
+745       ,Tomytec
 742       ,TomyTec
 737       ,"Toshin Pack"
 202       ,Toys
@@ -573,6 +595,7 @@
 293       ,Vertex
 728       ,Vibrastar
 209       ,"Vivendi Universal Games"
+764       ,VTOYS×BMS
 210       ,"Wafudo Ganguten"
 252       ,Wakamatsuya
 408       ,Wanderer

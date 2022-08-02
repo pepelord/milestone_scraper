@@ -1,47 +1,51 @@
-import time
 import os
 from os.path import exists
-from typing import Union, Any
 
+import holidays
+from bdateutil import isbday
+from flask import Flask, request, redirect, url_for, render_template
 import requests
-from pandas import DataFrame
-from pandas.io.parsers import TextFileReader
+from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from bs4 import BeautifulSoup
+import time
 from datetime import datetime, timedelta
 import pandas as pd
-
-import lxml
-import re
-import csv
 
 service = Service('chromedriver.exe')
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36'}
-
+main_url = "https://anime-export.com/index.php"
+desktop = os.path.expanduser("~/Desktop")
+login_data = {
+    "command": "login",
+    "username": os.environ['AEX_USERNAME'],
+    "password": os.environ['AEX_PASS'],
+    "x": "57",
+    "y": "16",
+}
 options = Options()
 # options.add_argument("--headless")
 MAIN_URL = "https://b2b.mile-stone.jp/en/"
-USERNAME = "1303700"
-PASS = "milestone0730"
+USERNAME = os.environ['MILESTONE_USERNAME']
+PASS = os.environ['MILESTONE_PASS']
 LOGIN_PAGE = "https://b2b.mile-stone.jp/en/v1/login/"
-b_cookies = {
-    "Cookie": "_gid=GA1.2.1654352526.1656855028; language=en; plack_session=f78860c384b7d52e0e706256ddc1345f27ee0bda; "
-              "_ga_H9G5GSEWC5=GS1.1.1656855027.1.1.1656855066.0; _ga=GA1.2.204837841.1656855027;"}
+AMIAMI_SEARCH = "https://www.amiami.com/eng/search/list/?s_keywords="
 csv_language = "en"
 today = datetime.now()
-yesterday = today - timedelta(days=1)
+yesterday = today - timedelta(days=3)
 today = datetime.strftime(today, "%Y-%m-%d")
 yesterday = datetime.strftime(yesterday, "%Y-%m-%d")
-AMIAMI_SEARCH = "https://www.amiami.com/eng/search/list/?s_keywords="
+
+app = Flask(__name__)
 
 
-def login():
+@app.route("/", methods=["GET", "POST"])
+def home():
     with requests.Session() as s:
         driver = webdriver.Chrome(service=service, options=options)
         driver.get(LOGIN_PAGE)
@@ -53,41 +57,88 @@ def login():
         password.send_keys(PASS)
         enter_btn = driver.find_element(By.NAME, "login")
         enter_btn.click()
-        # driver.get(f"https://b2b.mile-stone.jp/{csv_language}/search/0/date_type=guiduncedOn/date_span={yesterday}-{today}/status=preOrder/")
-        time.sleep(5)
+        time.sleep(6)
         cookies = driver.get_cookies()
         for cookie in cookies:
             s.cookies.set(cookie["name"], cookie["value"])
 
         soup = BeautifulSoup(driver.page_source, "lxml")
-        # print(soup.prettify())
 
-        # new_items = soup.find("div", {"class": "api-new-products"})
-        # print(new_items)
-        # print(len(new_items))
-        # milestone_code = new_items.find_all("data-mscode")
-        # print(milestone_code)
+        new_items = soup.find("div", {"class": "api-new-products"})
+
+        for a_tag in new_items.find_all("a", href=True):
+            a_tag["href"] = a_tag["href"].replace("/en/", "https://b2b.mile-stone.jp/en/")
+        for img in new_items.find_all("img"):
+            try:
+                img_link = (str(img).split('data-original="')[1].split('"')[0])
+            except IndexError:
+                img_link = ""
+            img["src"] = img_link
         driver.close()
-        return s
+        new_items_list_raw = str(new_items).split('<div class="col-xs-2">')
+        new_items_list = []
+        new_items_list_raw.pop(0)
+
+        counter = 1
+        for row in new_items_list_raw:
+            row_soup = BeautifulSoup(row, "lxml")
+            try:
+                ms_code = str(row_soup.find("a", href=True)).split('<a href="')[1].split('"')[0]
+            except IndexError:
+                ms_code = "dud"
+            # print(ms_code)
+
+            row = row.replace('<div class="thumbnail"', '<div class="col-sm-4" style="background-color:lavender;"> '
+                                                        '<div class="thumbnail"').replace(
+                '<li> </li></ul></div></div></div>', '<li><br>Add to csv <input type="checkbox" name="mycheckbox" '
+                                                     f'value="{ms_code}"></li'
+                                                     '></ul></div></div></div>').replace('<div class="row"></div>', '')
+
+            if '/groups/' in ms_code:
+                row = row.replace('</ul></div></div></div>', '<li><br>Add to csv <input type="checkbox" '
+                                                             'name="mycheckbox" '
+                                                             f'value="{ms_code}"></li></ul></div></div></div>')
+            if counter % 3 == 0:
+                row = f'</div> <div class="row">  {row}'
+
+            new_items_list.append(row)
+            counter += 1
+
+        new_items = " ".join(new_items_list)
+
+        get_csv(s)
+
+        return render_template("test.html", new_items=new_items)
 
 
-def get_categories(category):
-    categories_id = pd.read_csv("milestone_category_subcategory.csv")
+@app.route("/get_results", methods=["GET", "POST"])
+def get_results():
+    if request.method == "POST":
+        flask_list = request.form.getlist('mycheckbox')
 
-    try:
-        category_id = categories_id.loc[categories_id["Categories"] == category, "category id"].values[0]
-        subcategory_id = categories_id.loc[categories_id["Categories"] == category, "subcategory id"].values[0]
-    except IndexError:
-        category_id = "2878"
-        subcategory_id = "2882"
+        for link in flask_list:
+            if '/groups/' in link:
 
-    return category_id, subcategory_id
+                s = requests.get(link)
+                soup = BeautifulSoup(s.content, "lxml")
+                bundle_links = []
+                links = (soup.find_all("a"))
+                print(flask_list)
+                for item in links:
+                    if "/en/products/" in str(item) and "/groups/" not in str(item):
+                        product_link = f'https://b2b.mile-stone.jp{item["href"]}'
+                        bundle_links.append(product_link)
+                flask_list.remove(link)
+                for group_link in bundle_links:
+                    flask_list.append(group_link)
+                print(flask_list)
+    create_csv(flask_list)
+    return "Done"
 
 
-def get_csv():
+def get_csv(s):
     print(today)
     print(yesterday)
-    s = login()
 
     search_url = s.get(
         f"https://b2b.mile-stone.jp/{csv_language}/search/0/date_type=guiduncedOn/date_span={yesterday}-{today}/status=preOrder/?format=csv",
@@ -101,8 +152,6 @@ def get_csv():
     with open("test_ja.csv", "wb") as file:
         file.write(search_url_ja.content)
 
-    create_csv()
-
 
 def parse_csv():
     raw_df = pd.read_csv("test.csv")
@@ -113,17 +162,14 @@ def parse_csv():
     raw_df_ja = raw_df_ja.replace('[()]', '', regex=True)
     raw_df_ja.to_csv("less_raw_df_ja.csv", index=False)
     less_raw_df_ja = pd.read_csv("less_raw_df_ja.csv")
-    df = less_raw_df.loc[
-        (less_raw_df["Categories"] != "Figure・Doll") & (less_raw_df["Categories"] != "Plastic Model") & (
-                less_raw_df["Product status"] != "Tentative Pre-order")]
-    df_ja = less_raw_df_ja.loc[(less_raw_df_ja["カテゴリー"] != "フィギュア・ドール") & (less_raw_df_ja["カテゴリー"] != "プラモデル・模型l") & (
-            less_raw_df_ja["在庫状況"] != "予約問合せ")]
-    return df, df_ja
+
+    return less_raw_df, less_raw_df_ja
 
 
-def create_csv():
+def create_csv(flask_list):
     df, df_ja = parse_csv()
-
+    df = df.loc[df["URL"].isin(flask_list)]
+    print(df)
     for index, row in df.iterrows():
         # print(row)
         # ami_search = requests.get(f"{AMIAMI_SEARCH}{row['JAN Code']}", headers=headers, cookies=b_cookies)
@@ -144,6 +190,21 @@ def create_csv():
             release_date = f'{str(row["Release Date"]).replace("Within ", "")}/{day}'
         else:
             release_date = str(row["Release Date"])
+        preorder_date = str(row["Pre-order Deadline"]).replace("-", "/")
+        print(f'Preorder Date: {preorder_date}')
+
+        ### Checking that the preorder deadline doesn't end on holidays  ###
+
+        if isbday(preorder_date, holidays=holidays.Japan()):
+            preorder_date = datetime.strptime(preorder_date, "%Y/%m/%d") + timedelta(days=1)
+            preorder_date = preorder_date.strftime("%Y/%m/%d")
+            print(f"MODIFIED {preorder_date}")
+
+        while not (isbday(preorder_date, holidays=holidays.Japan())):
+            preorder_date = datetime.strptime(preorder_date, "%Y/%m/%d") - timedelta(days=1)
+            preorder_date = preorder_date.strftime("%Y/%m/%d")
+            print(f"MODIFIED {preorder_date}")
+
         name_jp_pd = (df_ja.loc[df_ja["JANコード"] == row["JAN Code"]]["商品名"])
         name_jp_str = (str(name_jp_pd))
         name_jp_list = name_jp_str.split()
@@ -159,15 +220,6 @@ def create_csv():
                 manufacturer_id = id_row["Maker ID"]
 
         if manufacturer_id is None:
-            main_url = "https://anime-export.com/index.php"
-
-            login_data = {
-                "command": "login",
-                "username": "adminae",
-                "password": "cazzinculo6969",
-                "x": "57",
-                "y": "16",
-            }
 
             new_manufacturers = []
             with requests.Session() as s:
@@ -259,7 +311,7 @@ def create_csv():
                 "1社目:数量": "",
                 "1社目:発注先": "Milestone",
                 "1社目:掛率": f'{round(((int(row["Wholesale Price"]) * int(row["Order Unit"])) / int((row["Retail Price"]) * int(row["Order Unit"])) * 100))}%',
-                "1社目:締切日": str(row["Pre-order Deadline"]).replace("-", "/"),
+                "1社目:締切日": preorder_date,
             }
         except ValueError:
             csv_line_dict = {
@@ -313,7 +365,7 @@ def create_csv():
                 "1社目:数量": "",
                 "1社目:発注先": "Milestone",
                 "1社目:掛率": f'{round(((int(row["Wholesale Price"]) * int(row["Order Unit"])) / int((row["Retail Price"]) * int(row["Order Unit"])) * 100))}%',
-                "1社目:締切日": str(row["Pre-order Deadline"]).replace("-", "/"),
+                "1社目:締切日": preorder_date,
 
             }
 
@@ -372,7 +424,7 @@ def create_csv():
             csv_line_dict["Wholesaler discount"] = "15"
             csv_line_dict["Carton wholesaler discount (%)"] = "15"
 
-        elif str(csv_line_dict["1社目:掛率"]) == "80%":
+        elif str(csv_line_dict["1社目:掛率"]) == "78%" or str(csv_line_dict["1社目:掛率"]) == "80%":
             csv_line_dict["Paylater discount"] = "0"
             csv_line_dict["Retailer discount"] = "5"
             csv_line_dict["Wholesaler discount"] = "10"
@@ -387,7 +439,7 @@ def create_csv():
             csv_line_dict["Material"] = material
 
         df2 = pd.DataFrame(csv_line_dict, index=[1])
-        desktop = os.path.expanduser("~/Desktop")
+
         t_file_exists = exists(f"{desktop}\\Milestone preorders-{today}.csv")
 
         if t_file_exists:
@@ -400,9 +452,16 @@ def create_csv():
             df2.to_csv(f"{desktop}\\Milestone preorders-{today}.csv", index=False)
 
         try:
-            qty_in_ctn = str(row["Number of Pieces"]).split("=")[1].split(")")[0]
+            qty_in_ctn = str(row["Number of Pieces"]).split("=")[1].split(")")[0].replace("pieces", "").replace("packs",
+                                                                                                                "").replace(
+                "box", "").replace("bags", "").replace("sets", "")
+            if "×" in str(qty_in_ctn):
+                qty_list = qty_in_ctn.split()
+                qty_in_ctn = int(qty_list[0]) * int(qty_list[-1])
+                print(qty_in_ctn)
         except IndexError:
             qty_in_ctn = ""
+            print(str(row["Number of Pieces"]))
         template_dict = {
             "product name": product_name,
             "jan code": row["JAN Code"],
@@ -415,7 +474,7 @@ def create_csv():
             "subcategory id": subcategory_id,
             "weight": "",
             "small packet": "yes",
-            "preorder deadline": str(row["Pre-order Deadline"]).replace("-", "/"),
+            "preorder deadline": preorder_date,
             "product release": release_date,
             "Paylater discount": csv_line_dict["Paylater discount"],
             "Retailer discount": csv_line_dict["Retailer discount"],
@@ -462,6 +521,21 @@ def create_csv():
         else:
 
             df.to_csv(f"{desktop}\\Milestone TEMPLATE-{today}.csv", index=False)
+
+    aex_upload()
+
+
+def aex_upload():
+    with requests.Session() as s:
+        s.post(main_url, headers=headers, data=login_data)
+
+        files = {"upload_file": open("1659082051_59503_25_anvil.png", "rb")}
+        values = {'dir': '/product_images/', 'submit': 'Submit'}
+        mierda = s.post("https://anime-export.com/admin/addpicpanel.php?product_id=59503", files=files, data=values)
+        csv_upload_page = s.get("https://anime-export.com/admin/addpicpanel.php?product_id=59503")
+        soup = BeautifulSoup(csv_upload_page.content, "lxml")
+        print(soup.prettify)
+        print(mierda)
 
 
 def amiami_info(jan):
@@ -513,4 +587,18 @@ def amiami_info(jan):
     return description, material, image_list
 
 
-get_csv()
+def get_categories(category):
+    categories_id = pd.read_csv("milestone_category_subcategory.csv")
+
+    try:
+        category_id = categories_id.loc[categories_id["Categories"] == category, "category id"].values[0]
+        subcategory_id = categories_id.loc[categories_id["Categories"] == category, "subcategory id"].values[0]
+    except IndexError:
+        category_id = "2878"
+        subcategory_id = "2882"
+
+    return category_id, subcategory_id
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
